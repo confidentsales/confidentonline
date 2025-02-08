@@ -19,12 +19,12 @@ router.use(bodyParser.json());
 router.use(express.json());
 
 router
-  // Route to request password reset
+  
   .route("/forgot-password")
   .post(forgotPassword);
 
 router
-  // Route to verify otp
+  
   .route("/verify-otp")
   .post(verifyOtp);
 
