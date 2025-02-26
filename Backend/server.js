@@ -29,7 +29,7 @@ const salesImport = require("./routes/salesImport");
 
 
 
-// app.use(cors());
+app.use(cors());
 app.use(
   cors({
     origin: process.env.ORIGIN_URL, // Allow this origin
@@ -38,7 +38,7 @@ app.use(
   })
 );
 
-app.options("*", cors());
+// app.options("*", cors());
 
 app.use("/api/contacts", userapp);
 app.use("/api/admin", adminLogin);

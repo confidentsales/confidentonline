@@ -124,7 +124,7 @@ const BackupAndRestore = () => {
   
 
   const downloadBackup = (fileName) => {
-    const cloudinaryUrl = `https://res.cloudinary.com/dgwe30jly/raw/upload/v1735189944/backups/${fileName}`;
+    const cloudinaryUrl = `https://res.cloudinary.com/dgwe30jly/raw/upload/v1735189944/Backups/backups/${fileName}`;
 
     // Create an invisible link
     const link = document.createElement("a");
