@@ -24,15 +24,15 @@ const parseArrayField = (field) => {
   const cleaned = field.replace(/^\[|\]$/g, "").trim();
   return cleaned
     ? cleaned
-        .split(",")
-        .map((item) => item.trim().replace(/^"|"$/g, ""))
-        .filter((item) => item && item !== '""')
+      .split(",")
+      .map((item) => item.trim().replace(/^"|"$/g, ""))
+      .filter((item) => item && item !== '""')
     : [];
 };
 
 const formatDateToDDMMYYYY = (date) => {
   if (!date) return null;
-  
+
   const d = new Date(date);
   if (isNaN(d.getTime())) {
     console.warn(`Invalid date value: ${date}`);
@@ -115,14 +115,14 @@ async function handleBackupAllData(req, res) {
       filteredContacts.map((contact) => ({
         ...contact,
         last_purchased_date: contact.last_purchased_date
-        ? formatDateToDDMMYYYY(new Date(contact.last_purchased_date))
-        : null,
-      create_date: contact.create_date
-        ? formatDateToDDMMYYYY(new Date(contact.create_date))
-        : null,
-      last_updated_date: contact.last_updated_date
-        ? formatDateToDDMMYYYY(new Date(contact.last_updated_date))
-        : null,
+          ? formatDateToDDMMYYYY(new Date(contact.last_purchased_date))
+          : null,
+        create_date: contact.create_date
+          ? formatDateToDDMMYYYY(new Date(contact.create_date))
+          : null,
+        last_updated_date: contact.last_updated_date
+          ? formatDateToDDMMYYYY(new Date(contact.last_updated_date))
+          : null,
         backup_date: formattedBackupDate,
       }))
     );
@@ -132,6 +132,7 @@ async function handleBackupAllData(req, res) {
       `data:text/csv;base64,${Buffer.from(csvData).toString("base64")}`,
       {
         resource_type: "raw", // Required for non-image file uploads
+        folder: "Backups",
         public_id: `backups/${fileName}_${formattedBackupDate}`, // Customize path as needed
         format: "csv",
       }
@@ -176,18 +177,18 @@ async function handleBackupAllData(req, res) {
         contact.status,
         contact.enquiry,
         contact.last_purchased_date
-        ? formatDateToDDMMYYYY(new Date(contact.last_purchased_date))
-        : null,
-      contact.branch_data,
-      contact.under_sales_person,
-      contact.create_date
-        ? formatDateToDDMMYYYY(new Date(contact.create_date))
-        : null,
-      contact.age,
-      contact.tags,
-      contact.last_updated_date
-        ? formatDateToDDMMYYYY(new Date(contact.last_updated_date))
-        : null,
+          ? formatDateToDDMMYYYY(new Date(contact.last_purchased_date))
+          : null,
+        contact.branch_data,
+        contact.under_sales_person,
+        contact.create_date
+          ? formatDateToDDMMYYYY(new Date(contact.create_date))
+          : null,
+        contact.age,
+        contact.tags,
+        contact.last_updated_date
+          ? formatDateToDDMMYYYY(new Date(contact.last_updated_date))
+          : null,
         formattedBackupDate,
       ]);
     }
@@ -207,8 +208,8 @@ async function handleRestoreAllData(req, res) {
   if (!fileName) return res.status(400).send("File name is required");
 
   const decodedFileName = decodeURIComponent(fileName);
-  const cloudinaryUrl = `http://res.cloudinary.com/dgwe30jly/raw/upload/v1732354698/backups/${decodedFileName}`;
-  const publicId = `backups/${decodedFileName}`;
+  const cloudinaryUrl = `http://res.cloudinary.com/dgwe30jly/raw/upload/v1732354698/Backups/backups/${decodedFileName}`;
+  const publicId = `Backups/backups/${decodedFileName}`;
 
   try {
     const existingBackupMobilenos = new Set(
@@ -366,50 +367,38 @@ async function handleRestoreAllData(req, res) {
 
 async function getAllBackupData(req, res) {
   try {
-    let next_cursor = null; // Initialize next_cursor as null for the first request
+    let next_cursor = null;
     const allFiles = [];
 
-    // Loop until there are no more results to fetch
     do {
       const response = await cloudinary.search
-        .max_results(30) // Limit results per request
-        .sort_by("public_id", "desc") // Optional: sort by file name or other criteria
-        .next_cursor(next_cursor) // Use the next_cursor from the previous response
+        .expression("public_id:Backups/backups/*") // Ensure only files in Backups/backups/ are fetched
+        .max_results(30)
+        .sort_by("public_id", "desc")
+        .next_cursor(next_cursor)
         .execute();
 
-      console.log("Cloudinary Search Response:", response);
 
-      if (response.resources.length === 0) {
-        console.log("No files found in Cloudinary.");
-        break; // Exit if no files are found
+
+      if (!response.resources || response.resources.length === 0) {
+        console.log("No backup files found.");
+        break;
       }
 
-      // Debugging: Log the structure of each file
-      response.resources.forEach((file) => {
-        console.log("File Object Structure:", file); // This will show the full file object structure
-      });
+      const files = response.resources.map((file) => ({
+        fileName: file.public_id.split("/").pop(),
+        url: file.secure_url,
+        created_at: file.created_at,
+      }));
 
-      // Ensure fileName and url are properly formatted as strings
-      const files = response.resources.map((file) => {
-        const fileName = file.public_id.split("/").pop(); // Get the file name only (no path)
-        const url = file.secure_url; // Ensure it's a string (URL)
+      allFiles.push(...files);
+      next_cursor = response.next_cursor;
 
-        return {
-          fileName: fileName, // This should be a string, e.g., "backup.csv"
-          url: url, // Ensure this is a string (URL)
-          created_at: file.created_at, // This should be a date string (ISO format)
-        };
-      });
+    } while (next_cursor);
 
-      allFiles.push(...files); // Add the current batch of files to the allFiles array
-
-      next_cursor = response.next_cursor; // Update next_cursor to continue pagination if there are more results
-    } while (next_cursor); // Continue looping if there is a next_cursor (more pages)
-
-    // Send the files as a JSON response to the frontend
     res.json(allFiles);
   } catch (error) {
-    console.error("Error fetching backup files from Cloudinary:", error);
+    console.error("Error fetching backup files:", error);
     res.status(500).send("Error fetching backup files");
   }
 }
@@ -426,7 +415,7 @@ async function getAllBackupFiles(req, res) {
 
   try {
     // Construct the Cloudinary resource path
-    const cloudinaryPath = `Home/${fileName}`; // Adjust this if files are stored in a different folder
+    const cloudinaryPath = `Home/Backups/${fileName}`; // Adjust this if files are stored in a different folder
     const file = await cloudinary.api.resource(cloudinaryPath);
 
     if (file) {
@@ -462,7 +451,7 @@ const handleDeleteBackupFiles = async (req, res) => {
   if (!decodedFileName) return res.status(400).send("File name is required");
 
   try {
-    const publicId = `backups/${decodedFileName}`; // Ensure this matches the public ID format in Cloudinary
+    const publicId = `Backups/backups/${decodedFileName}`; // Ensure this matches the public ID format in Cloudinary
     console.log(
       "Attempting to delete file from Cloudinary with public ID:",
       publicId
@@ -646,11 +635,11 @@ async function restoreDeletedData(req, res) {
   }
 }
 
-async function handleAllDeletedData(req,res){
-  try{
+async function handleAllDeletedData(req, res) {
+  try {
     await pool.query("DELETE FROM contacts_delete");
     console.log("All data deleted successfully");
-  }catch(error){
+  } catch (error) {
     console.error(error);
     res.status(500).json(error);
   }
